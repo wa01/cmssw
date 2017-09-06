@@ -6,6 +6,10 @@
 #include "TrackingTools/TrackFitters/interface/TrajectoryStateCombiner.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
+#include <iostream>
+using std::cout;
+using std::endl;
+
 GsfTrajectorySmoother::GsfTrajectorySmoother(const GsfPropagatorWithMaterial& aPropagator,
 					     const TrajectoryStateUpdator& aUpdator,
 					     const MeasurementEstimator& aEstimator,
@@ -80,6 +84,23 @@ GsfTrajectorySmoother::trajectory(const Trajectory& aTraj) const {
   TSOS predTsos = avtm.back().forwardPredictedState();
   predTsos.rescaleError(theErrorRescaling);
 
+  cout << "Local q/p error fwd / (rescaled) pred " 
+       << avtm.back().forwardPredictedState().localError().matrix()[0][0] << " "
+       << predTsos.localError().matrix()[0][0] << endl;
+  cout << "#components fwd / (rescaled) pred " 
+       << avtm.back().forwardPredictedState().components().size() << " "
+       << predTsos.components().size() << endl;
+  cout << "Local q/p errors fwd" << endl;
+  for ( size_t i=0; i<avtm.back().forwardPredictedState().components().size(); ++i ) {
+    cout << " " << avtm.back().forwardPredictedState().components()[i].localError().matrix()[0][0];
+  }
+  cout << endl;
+  cout << "Local q/p errors (rescaled) pred" << endl;
+  for ( size_t i=0; i<predTsos.components().size(); ++i ) {
+    cout << " " << predTsos.components()[i].localError().matrix()[0][0];
+  }
+  cout << endl;
+
   if(!predTsos.isValid()) {
     edm::LogInfo("GsfTrajectorySmoother") 
       << "GsfTrajectorySmoother: predicted tsos of last measurement not valid!";
@@ -107,7 +128,8 @@ GsfTrajectorySmoother::trajectory(const Trajectory& aTraj) const {
     
     myTraj.push(TM(avtm.back().forwardPredictedState(), 
 		   predTsos,
-		   avtm.back().updatedState(),
+		   // avtm.back().updatedState(),
+		   currTsos,
 		   avtm.back().recHit(),
 		   avtm.back().estimate(),
 		   theGeometry->idToLayer(avtm.back().recHit()->geographicalId()) ), 
@@ -204,7 +226,8 @@ GsfTrajectorySmoother::trajectory(const Trajectory& aTraj) const {
 
       myTraj.push(TM((*itm).forwardPredictedState(),
 		     predTsos,
-		     smooTsos,
+		     // smooTsos,
+		     currTsos,
 		     (*itm).recHit(),
 		     estimator()->estimate(combTsos, *(*itm).recHit()).second,
 		     theGeometry->idToLayer((*itm).recHit()->geographicalId() ) ),
