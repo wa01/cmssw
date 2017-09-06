@@ -53,6 +53,8 @@ class EcalClusterFunctionBaseClass ;
 #include <list>
 #include <string>
 
+#include "TTree.h"
+
 #include "RecoEgamma/EgammaElectronAlgos/interface/GsfElectronAlgoHeavyObjectCache.h"
 
 class GsfElectronAlgo {
@@ -242,6 +244,8 @@ class GsfElectronAlgo {
     EventSetupData * eventSetupData_ ;
     EventData * eventData_ ;
     ElectronData * electronData_ ;
+
+    TTree* tree_;
 
     void createElectron(const gsfAlgoHelpers::HeavyObjectCache*) ;
 

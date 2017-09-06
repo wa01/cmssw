@@ -36,7 +36,6 @@
 #include "Geometry/CommonDetUnit/interface/TrackingGeometry.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
 
-
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/isFinite.h"
 
@@ -45,11 +44,81 @@
 #include <sstream>
 #include <algorithm>
 
+// #include "FWCore/ServiceRegistry/interface/Service.h"
+// #include "CommonTools/UtilAlgos/interface/TFileService.h"
 
 using namespace edm ;
 using namespace std ;
 using namespace reco ;
 
+class SingleGaussianState1DLessWeight {
+  
+public:
+  SingleGaussianState1DLessWeight() {}
+  bool operator()(const SingleGaussianState1D& a, 
+                  const SingleGaussianState1D& b) const
+  {
+    return a.weight()>b.weight();
+  }
+};
+
+class TrajectoryStateLessWeight {
+  
+public:
+  TrajectoryStateLessWeight() {}
+  bool operator()(const TrajectoryStateOnSurface a, 
+                  const TrajectoryStateOnSurface b) const
+  {
+    if ( !a.isValid() || !b.isValid() )  return false;
+    return a.weight()>b.weight();
+  }
+};
+
+
+void printMultiState1D(std::string title, MultiGaussianState1D& multiState) {
+  std::vector<SingleGaussianState1D> components(multiState.components());
+  sort(components.begin(),components.end(),SingleGaussianState1DLessWeight());
+  size_t nc = components.size();
+  cout << "printMultiState1D: " << title << " ( " << nc << " components )" << endl;
+  printf(" weights: ");
+  for ( size_t i=0; i<nc; ++i )  printf("%12.4e",components[i].weight());
+  printf("\n");
+  printf(" means: ");
+  for ( size_t i=0; i<nc; ++i )  printf("%12.4e",components[i].mean());
+  printf("\n");
+  printf(" sigmas: ");
+  for ( size_t i=0; i<nc; ++i )  printf("%12.4e",components[i].standardDeviation());
+  printf("\n");
+  printf(" maxima: ");
+  for ( size_t i=0; i<nc; ++i )  
+    printf("%12.4e",components[i].weight()*0.398942280401/components[i].standardDeviation());
+  printf("\n");
+}
+
+void printTSOS(std::string title, const TrajectoryStateOnSurface state) {
+  cout << " " << title << " ( weight = " << state.weight() << " )" << endl;
+  printf(" local pars: ");
+  AlgebraicVector5 localPars(state.localParameters().vector());
+  for ( size_t i=0; i<5; ++i )  printf("%12.4e",localPars[i]);
+  printf("\n");
+  printf(" local errs: ");
+  const AlgebraicSymMatrix55& localErrs = state.localError().matrix();
+  for ( size_t i=0; i<5; ++i )  printf("%12.4e",sqrt(localErrs[i][i]));
+  printf("\n");
+  printf(" cartesian errs: ");
+  const AlgebraicSymMatrix66& cartErrs = state.cartesianError().matrix();
+  for ( size_t i=0; i<6; ++i )  printf("%12.4e",sqrt(cartErrs[i][i]));
+  printf("\n");
+}
+
+void printMultiTSOS(std::string title, const TrajectoryStateOnSurface multiState) {
+  std::vector<TrajectoryStateOnSurface> components(multiState.components());
+  sort(components.begin(),components.end(),TrajectoryStateLessWeight());
+  size_t nc = components.size();
+  cout << "printMultiTSOS: " << title << " ( " << nc << " components )" << endl;
+  printTSOS("combined",multiState);
+  for ( size_t i=0; i<nc; ++i )  printTSOS("comp",components[i]);
+}
 
 //===================================================================
 // GsfElectronAlgo::GeneralData
@@ -480,9 +549,16 @@ CaloClusterPtr GsfElectronAlgo::ElectronData::getEleBasicCluster
 bool GsfElectronAlgo::ElectronData::calculateTSOS
  ( const MultiTrajectoryStateTransform * mtsTransform, GsfConstraintAtVertex * constraintAtVtx )
  {
+   using std::cout;
+   using std::endl;
   //at innermost point
   innTSOS = mtsTransform->innerStateOnSurface(*gsfTrackRef);
   if (!innTSOS.isValid()) return false;
+  cout << "innTSOS: " << innTSOS.globalMomentum().perp() << " " 
+       << innTSOS.globalMomentum().z() << " "
+       << innTSOS.charge()/innTSOS.globalMomentum().mag()  << " "
+       << -log(tan(atan2(innTSOS.globalMomentum().perp(),innTSOS.globalMomentum().z())/2))
+       << endl;
 
   //at vertex
   // innermost state propagation to the beam spot position
@@ -490,6 +566,32 @@ bool GsfElectronAlgo::ElectronData::calculateTSOS
   ele_convert(beamSpot.position(),bsPos) ;
   vtxTSOS = mtsTransform->extrapolatedState(innTSOS,bsPos) ;
   if (!vtxTSOS.isValid()) vtxTSOS=innTSOS;
+  cout << "vtxTSOS: " << vtxTSOS.globalMomentum().perp() << " " 
+       << vtxTSOS.globalMomentum().z() << " "
+       << vtxTSOS.charge()/vtxTSOS.globalMomentum().mag() << " "
+       << -log(tan(atan2(vtxTSOS.globalMomentum().perp(),vtxTSOS.globalMomentum().z())/2))
+       << endl;
+
+  cout << "Orientation vtxTSOS:" << endl;;
+  LocalVector axis(1.,0.,0.);
+  GlobalVector gaxis = vtxTSOS.surface().toGlobal(axis);
+  cout << "  x " << gaxis.x() << " " << gaxis.y() << " " << gaxis.z() << endl;
+  axis = LocalVector(0.,1.,0.);
+  gaxis = vtxTSOS.surface().toGlobal(axis);
+  cout << "  y " << gaxis.x() << " " << gaxis.y() << " " << gaxis.z() << endl;
+  axis = LocalVector(0.,0.,1.);
+  gaxis = vtxTSOS.surface().toGlobal(axis);
+  cout << "  z " << gaxis.x() << " " << gaxis.y() << " " << gaxis.z() << endl;
+  cout << "local vector is"
+       << " " << vtxTSOS.localParameters().vector()[0] 
+       << " " << vtxTSOS.localParameters().vector()[1] 
+       << " " << vtxTSOS.localParameters().vector()[2] 
+       << " " << vtxTSOS.localParameters().vector()[3] 
+       << " " << vtxTSOS.localParameters().vector()[4] 
+       << endl;
+
+  printMultiTSOS("vtxTSOS",vtxTSOS);
+
 
   //at seed
   outTSOS = mtsTransform->outerStateOnSurface(*gsfTrackRef);
@@ -516,6 +618,27 @@ void GsfElectronAlgo::ElectronData::calculateMode( const MultiTrajectoryStateMod
  {
   mtsMode->momentumFromModeCartesian(innTSOS,innMom) ;
   mtsMode->positionFromModeCartesian(innTSOS,innPos) ;
+  cout << "innTSOS mode (cartesian) " << innMom.perp() << " " 
+       << innMom.z() << " "
+       << innTSOS.charge()/innMom.mag()  << " "
+       << -log(tan(atan2(innMom.perp(),innMom.z())/2))
+       << endl;
+  GlobalVector innMomFromLocal;
+  mtsMode->momentumFromModeLocal(innTSOS,innMomFromLocal);
+  cout << "innTSOS mode (from local) " << innMomFromLocal.perp() << " " 
+       << innMomFromLocal.z() << " "
+       << innTSOS.charge()/innMomFromLocal.mag()  << " "
+       << -log(tan(atan2(innMomFromLocal.perp(),innMomFromLocal.z())/2))
+       << endl;
+  GlobalVector innMomFromPPhiEta;
+  mtsMode->momentumFromModePPhiEta(innTSOS,innMomFromPPhiEta);
+  cout << "innTSOS mode (from PPhiEta) " << innMomFromPPhiEta.perp() << " " 
+       << innMomFromPPhiEta.z() << " "
+       << innTSOS.charge()/innMomFromPPhiEta.mag()  << " "
+       << -log(tan(atan2(innMomFromPPhiEta.perp(),innMomFromPPhiEta.z())/2))
+       << endl;
+  
+
   mtsMode->momentumFromModeCartesian(seedTSOS,seedMom) ;
   mtsMode->positionFromModeCartesian(seedTSOS,seedPos) ;
   mtsMode->momentumFromModeCartesian(eleTSOS,eleMom) ;
@@ -524,6 +647,44 @@ void GsfElectronAlgo::ElectronData::calculateMode( const MultiTrajectoryStateMod
   mtsMode->positionFromModeCartesian(sclTSOS,sclPos) ;
   mtsMode->momentumFromModeCartesian(vtxTSOS,vtxMom) ;
   mtsMode->positionFromModeCartesian(vtxTSOS,vtxPos) ;
+  cout << "vtxTSOS mode " << vtxMom.perp() << " " 
+       << vtxMom.x() << " "
+       << vtxMom.y() << " "
+       << vtxMom.z() << " "
+       << innTSOS.charge()/vtxMom.mag()  << " "
+       << -log(tan(atan2(vtxMom.perp(),vtxMom.z())/2))
+       << endl;
+  std::vector<MultiGaussianState1D> vtxTsosStatesCartesian(mtsMode->momentumMultiState1DCartesian(vtxTSOS));
+  printMultiState1D("px",vtxTsosStatesCartesian[0]);
+  printMultiState1D("py",vtxTsosStatesCartesian[1]);
+  printMultiState1D("pz",vtxTsosStatesCartesian[2]);
+  GlobalVector vtxMomFromLocal;
+  mtsMode->momentumFromModeLocal(vtxTSOS,vtxMomFromLocal);
+  cout << "vtxTSOS mode (from local) " << vtxMomFromLocal.perp() << " " 
+       << vtxMomFromLocal.x() << " "
+       << vtxMomFromLocal.y() << " "
+       << vtxMomFromLocal.z() << " "
+       << vtxTSOS.charge()/vtxMomFromLocal.mag()  << " "
+       << -log(tan(atan2(vtxMomFromLocal.perp(),vtxMomFromLocal.z())/2))
+       << endl;
+  std::vector<MultiGaussianState1D> vtxTsosStatesLocal(mtsMode->momentumMultiState1DLocal(vtxTSOS));
+  printMultiState1D("qp",vtxTsosStatesLocal[0]);
+  printMultiState1D("dxdz",vtxTsosStatesLocal[1]);
+  printMultiState1D("dydz",vtxTsosStatesLocal[2]);
+  GlobalVector vtxMomFromPPhiEta;
+  mtsMode->momentumFromModePPhiEta(vtxTSOS,vtxMomFromPPhiEta);
+  cout << "vtxTSOS mode (from PPhiEta) " << vtxMomFromPPhiEta.perp() << " " 
+       << vtxMomFromPPhiEta.x() << " "
+       << vtxMomFromPPhiEta.y() << " "
+       << vtxMomFromPPhiEta.z() << " "
+       << vtxTSOS.charge()/vtxMomFromPPhiEta.mag()  << " "
+       << -log(tan(atan2(vtxMomFromPPhiEta.perp(),vtxMomFromPPhiEta.z())/2))
+       << endl;
+  std::vector<MultiGaussianState1D> vtxTsosStatesPPhiEta(mtsMode->momentumMultiState1DPPhiEta(vtxTSOS));
+  printMultiState1D("p",vtxTsosStatesPPhiEta[0]);
+  printMultiState1D("phi",vtxTsosStatesPPhiEta[1]);
+  printMultiState1D("eta",vtxTsosStatesPPhiEta[2]);
+
   mtsMode->momentumFromModeCartesian(outTSOS,outMom);
   mtsMode->positionFromModeCartesian(outTSOS,outPos) ;
   mtsMode->momentumFromModeCartesian(constrainedVtxTSOS,vtxMomWithConstraint);
@@ -700,7 +861,10 @@ GsfElectronAlgo::GsfElectronAlgo
    : generalData_(new GeneralData(inputCfg,strategyCfg,cutsCfg,cutsCfgPflow,hcalCfg,hcalCfgPflow,isoCfg,recHitsCfg,superClusterErrorFunction,crackCorrectionFunction,mva_NIso_Cfg,mva_Iso_Cfg,regCfg)),
    eventSetupData_(new EventSetupData),
    eventData_(0), electronData_(0)
- {}
+ {
+   // edm::Service<TFileService> fs;
+   // tree_ = fs->make<TTree>("tree","tree");
+}
 
 GsfElectronAlgo::~GsfElectronAlgo()
  {

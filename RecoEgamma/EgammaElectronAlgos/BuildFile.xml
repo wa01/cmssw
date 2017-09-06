@@ -32,6 +32,8 @@
 <use   name="RecoTracker/TkTrackingRegions"/>
 <use   name="CondFormats/EgammaObjects"/>
 <use   name="CondFormats/DataRecord"/>
+<use name="FWCore/ServiceRegistry"/> 
+<use name="CommonTools/UtilAlgos"/>
 <export>
   <lib   name="1"/>
 </export>
