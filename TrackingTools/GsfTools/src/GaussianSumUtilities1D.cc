@@ -18,6 +18,7 @@
 #include <numeric>
 #include <algorithm>
 
+#define DEBUG
 
 double GaussianSumUtilities1D::pdf(unsigned int i, double x)  const {
   return weight(i)*gauss(x,mean(i),standardDeviation(i));
@@ -129,20 +130,37 @@ GaussianSumUtilities1D::computeMode () const
   double xRes(mean((*xStart.begin()).second)); // current estimate of mode
   double yRes(-1.); // pdf at current estimate of mode
 //   std::pair<double,double> result(-1.,mean((*xStart.begin()).second));
-  for ( StartMap::const_iterator i=xStart.begin(); i!=xStart.end(); i++ ) {
+  size_t istart(0);
+  for ( StartMap::const_iterator i=xStart.begin(); i!=xStart.end(); i++,istart++ ) {
+    if ( theDebug ) {
+      std::cout << "Start value " << istart << " : "
+		<< (*i).first << " " << (*i).second << " "
+		<< mean((*i).second) << std::endl;
+    }
     //
     // Convergence radius for a single Gaussian = 1 sigma: don't try
     // start values within 1 sigma of the current solution
     //
     if ( theModeStatus==Valid &&
-	 fabs(mean((*i).second)-mean(iRes))/standardDeviation(iRes)<1. )  continue;
+	 fabs(mean((*i).second)-mean(iRes))/standardDeviation(iRes)<1. )  {
+if ( theDebug ) {
+      std::cout << "continue since close to solution " << iRes << std::endl;
+}
+      continue;
+    }
     //
     // If a solution exists: drop as soon as the pdf at
     // start value drops to < 75% of maximum (try to avoid
     // unnecessary searches for the mode)
     //
     if ( theModeStatus==Valid && 
-   	 (*i).first/(*xStart.begin()).first<0.75 )  break;
+   	 (*i).first/(*xStart.begin()).first<0.75 ) {
+if ( theDebug ) {
+      std::cout << "break since " <<  (*i).first 
+		<< " < 0.75* " << (*xStart.begin()).first << std::endl;
+}
+      break;
+    }
     //
     // Try to find mode
     //
@@ -153,15 +171,27 @@ GaussianSumUtilities1D::computeMode () const
     // consider only successful searches
     //
     if ( valid ) { //...
+      if ( theDebug ) {
+	double varMode = localVariance(x);
+	double wgtMode = pdf(x)*sqrt(2*M_PI*varMode);
+	std::cout << "Found mode at " << x << " " << y 
+		  << " " << wgtMode << " " << pdf(x) << std::endl;
+      }
       //
       // update result only for significant changes in pdf(solution)
       //
       if ( yRes<0. || (y-yRes)/(y+yRes)>1.e-10 ) {
-      iRes = (*i).second;               // store index
-      theModeStatus = Valid;            // update status
-      xRes = x;                         // current solution
-      yRes = y;                         // and its pdf value
+	// double wgtMode = pdf(x)*sqrt(2*M_PI*localVariance(x));
+	// if ( wgtMode>0.05 ){
+	  if ( theDebug ) {
+	    std::cout << "Updating result " << std::endl;
+	  }
+	  iRes = (*i).second;               // store index
+	  theModeStatus = Valid;            // update status
+	  xRes = x;                         // current solution
+	  yRes = y;                         // and its pdf value
 //       result = std::make_pair(y,x);     // store solution and pdf(solution)
+	// }
       }
     } //...
   } 

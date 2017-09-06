@@ -21,7 +21,7 @@ public:
   GaussianSumUtilities1D (const MultiGaussianState1D& state) :
     theState(state),
 //     theStates(state.components()),
-    theModeStatus(NotComputed) {} 
+    theModeStatus(NotComputed), theDebug(false) {} 
   ~GaussianSumUtilities1D () {}
 
   /// number of components
@@ -138,5 +138,9 @@ private:
   mutable ModeStatus theModeStatus;
   mutable SingleGaussianState1D theMode;
 //   mutable double theMode;
+
+
+public:
+  bool theDebug;
 };
 #endif
