@@ -1092,12 +1092,34 @@ void GsfElectronAlgo::completeElectrons(const gsfAlgoHelpers::HeavyObjectCache* 
 
     // check there is a super-cluster
     if (coreRef->superCluster().isNull()) continue ;
+    cout << "SuperCluster energy, eta " << coreRef->superCluster()->energy()
+	 << " " << coreRef->superCluster()->eta() << endl;
 
     // prepare internal structure for electron specific data
     delete electronData_ ;
     electronData_ = new ElectronData(coreRef,*eventData_->beamspot) ;
 
     // calculate and check Trajectory StatesOnSurface....
+    reco::HitPattern hp = electronData_->gsfTrackRef->hitPattern();
+    cout << "GsfTrack hits: ";
+    cout << " PXB " 
+	 << hp.numberOfValidPixelBarrelHits() << " ("
+	 << hp.numberOfLostPixelBarrelHits(reco::HitPattern::TRACK_HITS) << ")";
+    cout << " PXF " 
+	 << hp.numberOfValidPixelEndcapHits() << " ("
+	 << hp.numberOfLostPixelEndcapHits(reco::HitPattern::TRACK_HITS) << ")";
+    cout << " TIB " 
+	 << hp.numberOfValidStripTIBHits() << " ("
+	 << hp.numberOfLostStripTIBHits(reco::HitPattern::TRACK_HITS) << ")";
+    cout << " TOB " 
+	 << hp.numberOfValidStripTOBHits() << " ("
+	 << hp.numberOfLostStripTOBHits(reco::HitPattern::TRACK_HITS) << ")";
+    cout << " TID " 
+	 << hp.numberOfValidStripTIDHits() << " ("
+	 << hp.numberOfLostStripTIDHits(reco::HitPattern::TRACK_HITS) << ")";
+    cout << " TEC " 
+	 << hp.numberOfValidStripTECHits() << " ("
+	 << hp.numberOfLostStripTECHits(reco::HitPattern::TRACK_HITS) << ")" << endl;
     if ( !electronData_->calculateTSOS( eventSetupData_->mtsTransform, eventSetupData_->constraintAtVtx ) ) continue ;
 
     createElectron(hoc) ;

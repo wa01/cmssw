@@ -1,0 +1,9 @@
+<use name="FWCore/Framework"/>
+<use name="FWCore/PluginManager"/>
+<use name="FWCore/ParameterSet"/>
+<use name="DataFormats/GsfTrackReco"/>
+<use name="Geometry/Records"/>
+<use name="MagneticField/Records"/>
+<use name="TrackingTools/TrajectoryState"/>
+<use name="TrackingTools/GsfTools"/>
+<flags EDM_PLUGIN="1"/>

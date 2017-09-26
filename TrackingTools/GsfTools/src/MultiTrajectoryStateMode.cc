@@ -46,13 +46,23 @@ MultiTrajectoryStateMode::momentumFromModeCartesian (const TrajectoryStateOnSurf
   MultiGaussianState1D pxState(pxStates);
   MultiGaussianState1D pyState(pyStates);
   MultiGaussianState1D pzState(pzStates);
-  GaussianSumUtilities1D pxUtils(pxState); pxUtils.theDebug = true;
-  GaussianSumUtilities1D pyUtils(pyState); pyUtils.theDebug = true;
-  GaussianSumUtilities1D pzUtils(pzState); pzUtils.theDebug = true;
+  GaussianSumUtilities1D pxUtils(pxState); pxUtils.theDebug = 1;
+  GaussianSumUtilities1D pyUtils(pyState); pyUtils.theDebug = 1;
+  GaussianSumUtilities1D pzUtils(pzState); pzUtils.theDebug = 1;
   //
   // cartesian momentum vector from modes
   //
-  momentum = GlobalVector(pxUtils.mode().mean(),pyUtils.mode().mean(),pzUtils.mode().mean());
+  std::cout << "Calculating px mode" << std::endl;
+  double px = pxUtils.mode().mean();
+  std::cout << " end px mode" << std::endl;
+  std::cout << "Calculating py mode" << std::endl;
+  double py = pyUtils.mode().mean();
+  std::cout << " end py mode" << std::endl;
+  std::cout << "Calculating pz mode" << std::endl;
+  double pz = pzUtils.mode().mean();
+  std::cout << " end pz mode" << std::endl;
+  momentum = GlobalVector(px,py,pz);
+  // momentum = GlobalVector(pxUtils.mode().mean(),pyUtils.mode().mean(),pzUtils.mode().mean());
   return true;
 }
 

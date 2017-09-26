@@ -18,7 +18,12 @@
 #include <numeric>
 #include <algorithm>
 
-#define DEBUG
+#include <execinfo.h>
+#include <stdio.h>
+
+// #define DEBUG
+#define CHANGE_ONE
+// #define CHANGE_TWO
 
 double GaussianSumUtilities1D::pdf(unsigned int i, double x)  const {
   return weight(i)*gauss(x,mean(i),standardDeviation(i));
@@ -112,6 +117,9 @@ GaussianSumUtilities1D::computeMode () const
     theMode = SingleGaussianState1D(theState.mean(),theState.variance(),
 				    theState.weight());
     theModeStatus = Valid;
+    if ( theDebug==1 || theDebug==2 ) {
+      std::cout << "computeMode ends with status " << theModeStatus << " (degenerate)" << std::endl;
+    }
     return;
   }
   //
@@ -131,11 +139,20 @@ GaussianSumUtilities1D::computeMode () const
   double yRes(-1.); // pdf at current estimate of mode
 //   std::pair<double,double> result(-1.,mean((*xStart.begin()).second));
   size_t istart(0);
+  if ( theDebug==2 ) {
+    void* array[8];
+    size_t n = backtrace(array,8);
+    std::cerr << "Start trace" << std::endl;
+    backtrace_symbols_fd(array,n,STDERR_FILENO);
+  }
+  if ( theDebug==1 || theDebug==2 ) {
+    std::cout << "computeMode starting for " << xStart.size() << " components" << std::endl;
+  }
   for ( StartMap::const_iterator i=xStart.begin(); i!=xStart.end(); i++,istart++ ) {
-    if ( theDebug ) {
+    if ( theDebug==1 || theDebug==2 ) {
       std::cout << "Start value " << istart << " : "
 		<< (*i).first << " " << (*i).second << " "
-		<< mean((*i).second) << std::endl;
+		<< mean((*i).second) << " " << standardDeviation((*i).second) << std::endl;
     }
     //
     // Convergence radius for a single Gaussian = 1 sigma: don't try
@@ -143,7 +160,7 @@ GaussianSumUtilities1D::computeMode () const
     //
     if ( theModeStatus==Valid &&
 	 fabs(mean((*i).second)-mean(iRes))/standardDeviation(iRes)<1. )  {
-if ( theDebug ) {
+if ( theDebug==1 || theDebug==2 ) {
       std::cout << "continue since close to solution " << iRes << std::endl;
 }
       continue;
@@ -155,7 +172,7 @@ if ( theDebug ) {
     //
     if ( theModeStatus==Valid && 
    	 (*i).first/(*xStart.begin()).first<0.75 ) {
-if ( theDebug ) {
+if ( theDebug==1 || theDebug==2 ) {
       std::cout << "break since " <<  (*i).first 
 		<< " < 0.75* " << (*xStart.begin()).first << std::endl;
 }
@@ -171,7 +188,7 @@ if ( theDebug ) {
     // consider only successful searches
     //
     if ( valid ) { //...
-      if ( theDebug ) {
+      if ( theDebug==1 || theDebug==2 ) {
 	double varMode = localVariance(x);
 	double wgtMode = pdf(x)*sqrt(2*M_PI*varMode);
 	std::cout << "Found mode at " << x << " " << y 
@@ -183,7 +200,7 @@ if ( theDebug ) {
       if ( yRes<0. || (y-yRes)/(y+yRes)>1.e-10 ) {
 	// double wgtMode = pdf(x)*sqrt(2*M_PI*localVariance(x));
 	// if ( wgtMode>0.05 ){
-	  if ( theDebug ) {
+	  if ( theDebug==1 || theDebug==2 ) {
 	    std::cout << "Updating result " << std::endl;
 	  }
 	  iRes = (*i).second;               // store index
@@ -238,6 +255,9 @@ if ( theDebug ) {
     }
     theMode = SingleGaussianState1D(components()[icMax]);
   }
+  if ( theDebug==1 || theDebug==2 ) {
+    std::cout << "computeMode ends with status " << theModeStatus << std::endl;
+  }
   
 }
 
@@ -266,10 +286,27 @@ GaussianSumUtilities1D::findMode (double& xMode, double& yMode,
   // Iterate
   //
   int nLoop(0);
+// #ifdef CHANGE_TWO
+  // change two
+  double ymax(state.y);
+// #endif
   while ( nLoop++<20 ) {
+    if ( theDebug==1 || theDebug==2 ) {
+    std::cout << "Now at " 
+		<< state.x << " " << state.y << " " 
+		<< state.yd << " " << state.yd2 << std::endl;
+    }
     if ( nLoop>1 && state.yd2<0. &&  
- 	 ( fabs(state.yd*scale)<1.e-10 || fabs(state.y-y1)/(state.y+y1)<1.e-14 ) ) {
+ 	 ( fabs(state.yd*scale)<1.e-10 || fabs(state.y-y1)/(state.y+y1)<1.e-14 ) 
+#ifdef CHANGE_TWO
+	 // change two: fail if < previous max
+	 && state.y>ymax
+#endif
+	 ) {
       result = true;
+    if ( theDebug==1 || theDebug==2 ) {
+      std::cout << "findMode: stop at " << xMode << " " << yMode << std::endl;
+    }
       break;
     }
     if ( fabs(state.yd2)<std::numeric_limits<float>::min() )  
@@ -278,7 +315,21 @@ GaussianSumUtilities1D::findMode (double& xMode, double& yMode,
     x1 = state.x;
     y1 = state.y;
     double x2 = x1 + dx;
-    if ( state.yd2>0. && (x2<xmin||x2>xmax) )  return false;
+    if ( state.yd2>0. && (x2<xmin||x2>xmax) ) {
+    if ( theDebug==1 || theDebug==2 ) {
+      std::cout << "findMode result: failed(1)" << std::endl;
+    }
+      return false;
+    }
+#ifdef CHANGE_ONE
+    // change one: make test on xmin/xmax unconditional
+    if ( (x2<xmin||x2>xmax) )  return false;
+#endif
+// #ifdef CHANGE_TWO
+    // change two
+    if ( state.y > ymax )  ymax = state.y;
+// #endif
+
     update(state,x2);
   }
   //
@@ -287,6 +338,14 @@ GaussianSumUtilities1D::findMode (double& xMode, double& yMode,
   if ( result ) {
     xMode = state.x;
     yMode = state.y;
+    if ( theDebug==1 || theDebug==2 ) {
+      std::cout << "findMode result: " << xMode << " " << yMode << " " << ymax << std::endl;
+    }
+  }
+  else {
+    if ( theDebug==1 || theDebug==2 ) {
+    std::cout << "findMode result: failed(2)" << std::endl;
+    }
   }
   return result;
 }
