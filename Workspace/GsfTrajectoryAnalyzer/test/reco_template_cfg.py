@@ -26,7 +26,7 @@ process.load('DQMOffline.Configuration.DQMOffline_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(1)
+    input = cms.untracked.int32(-1)
 )
 #process.MessageLogger.FrameworkJobReport.default.limit = 1000
 
@@ -48,7 +48,7 @@ process.source = cms.Source("PoolSource",
                                       'file:/afs/cern.ch/user/t/tpook/public/03Feb_raw/pick_DoubleEGRun2016C-03Feb2017-v1_Rec_1Ele+X_DEta_216_276097_186490714.root'
                                       ),
     secondaryFileNames = cms.untracked.vstring(),
-    eventsToProcess = cms.untracked.VEventRange('274200:720352580')
+#    eventsToProcess = cms.untracked.VEventRange('274200:720352580')
 )
 
 process.options = cms.untracked.PSet(
@@ -71,8 +71,11 @@ process.contentAnalyzer = cms.EDAnalyzer("EventContentAnalyzer")
 process.trajectoryAnalyzer = cms.EDAnalyzer("GsfTrajectoryAnalyzer",
                                             trajectories = cms.InputTag("electronGsfTracks")
 )
+process.trackAnalyzer = cms.EDAnalyzer("GsfTrackAnalyzer",
+                                            tracks = cms.InputTag("gedGsfElectrons")
+)
 process.contentAnalyzer_step = cms.Path(#process.contentAnalyzer+
-                                        process.trajectoryAnalyzer)
+                                        process.trajectoryAnalyzer+process.trackAnalyzer)
 
 # Output definition
 
